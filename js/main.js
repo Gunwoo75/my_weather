@@ -4,9 +4,7 @@
 // 1. 모듈 Import 및 DOM 요소 캐싱
 // ==========================================================
 
-// js/api.js 파일에서 API 관련 함수들을 가져옵니다.
 import { getWeather, getForecast, getTodayRainInfo } from './api.js';
-// js/ui.js 파일에서 UI 관련 함수들을 가져옵니다.
 import { displayWeather, displayHourlyForecast, displayForecast, loadRecentCities, displayPokeBoost } from './ui.js';
 
 const MAX_RECENT_CITIES = 5;
@@ -46,35 +44,37 @@ const DOM_ELEMENTS = {
 // ==========================================================
 
 async function fetchWeatherAndDisplay(query) {
-    // 쿼리가 좌표 형식인지 (lat=...&lon=...) 확인합니다.
     const isCoordinate = query.startsWith('lat=') && query.includes('lon=');
-    const city = isCoordinate ? query : query.trim();
+    const cityQuery = isCoordinate ? query : query.trim();
     
-    if (!city) return;
+    if (!cityQuery) return;
 
     try {
         errorDisplay.classList.add("hidden");
         weatherDetails.classList.add("hidden");
 
-        // 1. 현재 날씨 데이터 가져오기 (api.js의 getWeather 함수 사용)
-        const data = await getWeather(city, isCelsius);
-        currentWeatherCache = data;
+        // 1. 현재 날씨 데이터 가져오기 (API 호출)
+        const currentData = await getWeather(cityQuery, isCelsius);
+        currentWeatherCache = currentData;
         
-        const { lat, lon } = data.coord;
+        const { lat, lon } = currentData.coord;
 
-        // 2. 강수 정보 가져오기 (api.js의 getTodayRainInfo 함수 사용)
-        const willRainInfo = await getTodayRainInfo(lat, lon);
+        // 2. 강수 정보 가져오기
+        const willRainInfo = await getTodayRainInfo(lat, lon); 
 
-        // 3. UI 업데이트 (ui.js의 함수들 사용)
-        displayWeather(data, isCelsius, willRainInfo, DOM_ELEMENTS);
-        displayPokeBoost(data, DOM_ELEMENTS.pogoboostContent);
+        // 3. 예보 데이터 가져오기 (⭐로직 수정⭐)
+        const forecastData = await getForecast(lat, lon, isCelsius);
+
+        // 4. UI 업데이트 (ui.js의 함수들 사용)
+        displayWeather(currentData, isCelsius, willRainInfo, DOM_ELEMENTS);
+        displayPokeBoost(currentData, DOM_ELEMENTS.pogoboostContent);
         
-        // 4. 예보 데이터 업데이트
-        await displayForecast(data, isCelsius, forecastCardsDiv);
-        await displayHourlyForecast(data, isCelsius, hourlyCardsDiv);
+        // 5. 예보 데이터 화면에 표시 (forecastData 전달)
+        displayForecast(forecastData, isCelsius, forecastCardsDiv);
+        displayHourlyForecast(forecastData, isCelsius, hourlyCardsDiv);
 
-        // 5. 최근 검색 업데이트
-        updateRecentCities(data.name);
+        // 6. 최근 검색 업데이트
+        updateRecentCities(currentData.name);
 
     } catch (err) {
         handleError(err);
@@ -89,8 +89,7 @@ function updateRecentCities(city) {
     if (list.length > MAX_RECENT_CITIES) list = list.slice(0, MAX_RECENT_CITIES);
 
     localStorage.setItem(RECENT_CITIES_KEY, JSON.stringify(list));
-    // loadRecentCities 호출 시 콜백 함수(fetchWeatherAndDisplay) 전달
-    loadRecentCities(cityInput, recentCitiesSection, recentListDiv, fetchWeatherAndDisplay); 
+    loadRecentCities(cityInput, recentCitiesSection, recentListDiv, fetchWeatherAndDisplay);
 }
 
 function handleError(err) {
@@ -106,7 +105,7 @@ function handleError(err) {
 
 searchBtn.onclick = () => {
     const city = cityInput.value.trim();
-    if (city) fetchWeatherAndDisplay(city); // 새 함수 호출
+    if (city) fetchWeatherAndDisplay(city);
 };
 
 cityInput.addEventListener("keypress", (e) => {
@@ -116,26 +115,23 @@ cityInput.addEventListener("keypress", (e) => {
 unitToggleBtn.onclick = () => {
     isCelsius = !isCelsius;
     if (currentWeatherCache)
-        fetchWeatherAndDisplay(currentWeatherCache.name); // 새 함수 호출
+        fetchWeatherAndDisplay(currentWeatherCache.name);
 };
 
 
 // ==========================================================
-// 4. 위치 기반 자동 로딩 (간소화)
+// 4. 위치 기반 자동 로딩
 // ==========================================================
 
 window.onload = () => {
-    // 로드 시 최근 검색어 로딩
     loadRecentCities(cityInput, recentCitiesSection, recentListDiv, fetchWeatherAndDisplay); 
 
     navigator.geolocation.getCurrentPosition(
         async (pos) => {
             const { latitude, longitude } = pos.coords;
             
-            // 위치 정보를 얻으면 좌표 기반으로 날씨 정보를 요청
-            // NOTE: api.js의 getWeather 함수가 q={city} 형태를 기대하므로,
-            // 임시로 기본 도시로 호출하여 API 키 주입 여부 확인에 집중합니다.
-            fetchWeatherAndDisplay("Seoul"); 
+            // 위치 정보를 얻으면 좌표 기반 쿼리를 만들어 전달
+            fetchWeatherAndDisplay(`lat=${latitude}&lon=${longitude}`);
         },
         // 실패 시 서울 날씨 정보 로드
         () => fetchWeatherAndDisplay("Seoul")
