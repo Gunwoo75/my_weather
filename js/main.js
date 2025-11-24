@@ -2,9 +2,8 @@
 // 1. 기본 설정 및 DOM 요소 캐싱
 // ==========================================================
 
-const API_KEY = "YOUR_OPENWEATHERMAP_API_KEY_PLACEHOLDER";
-const BASE_URL = "https://api.openweathermap.org/data/2.5";
-
+import { getWeather, getForecast, getTodayRainInfo } from './api.js';
+import { displayWeather, displayHourlyForecast, displayForecast, loadRecentCities, displayPokeBoost } from './ui.js';
 const MAX_RECENT_CITIES = 5;
 const RECENT_CITIES_KEY = "recentCities";
 
@@ -322,6 +321,28 @@ function loadRecentCities() {
 // 8. 이벤트
 // ==========================================================
 
+async function fetchWeatherAndDisplay(city) {
+    const unit = isCelsius ? "metric" : "imperial";
+
+    try {
+        // 1. API 모듈에서 날씨 데이터 가져오기
+        const data = await getWeather(city, isCelsius); 
+        currentWeatherCache = data;
+
+        // 2. API 모듈에서 강수 정보 가져오기
+        const willRainInfo = await getTodayRainInfo(data.coord.lat, data.coord.lon);
+
+        // 3. UI 모듈을 사용하여 화면 업데이트
+        displayWeather(data, isCelsius, willRainInfo, /* 필요한 DOM 요소들 */); 
+        
+        // 4. 나머지 업데이트
+        updateRecentCities(city);
+        await getForecast(data.coord.lat, data.coord.lon, isCelsius);
+
+    } catch (err) {
+        handleError(err);
+    }
+}
 searchBtn.onclick = () => {
     const city = cityInput.value.trim();
     if (city) getWeather(city);

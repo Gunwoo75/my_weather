@@ -1,6 +1,6 @@
 // weather_app/js/api.js
 
-const API_KEY = "35bda20965ba4a1529ad5ffc80ac2f38";
+const API_KEY = "YOUR_OPENWEATHERMAP_API_KEY_PLACEHOLDER"; 
 const BASE_URL = "https://api.openweathermap.org/data/2.5";
 
 /**
