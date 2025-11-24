@@ -1,17 +1,17 @@
-// js/ui.js 파일 내용 (일부 함수 구조 수정됨)
+// js/ui.js 파일 내용
 
 const RECENT_CITIES_KEY = "recentCities";
 
-
 // ==========================================================
-// 1. 배경 업데이트 함수 (외부로 노출하지 않음)
+// 1. 배경 업데이트 함수
 // ==========================================================
 
 function updateBackground(weatherId) {
     const body = document.body;
     body.classList.remove("bg-clear", "bg-clouds", "bg-rain", "bg-snow", "bg-thunder", "bg-mist");
-    // ... (배경 업데이트 로직 유지)
+
     let className = "";
+
     if (weatherId >= 200 && weatherId < 300) {
         className = "bg-thunder";
     } else if (weatherId >= 300 && weatherId < 600) {
@@ -25,15 +25,15 @@ function updateBackground(weatherId) {
     } else if (weatherId > 800) {
         className = "bg-clouds";
     }
+
     if (className) body.classList.add(className);
 }
 
 // ==========================================================
-// 2. 옷차림 추천 함수 (export)
+// 2. 옷차림 추천 함수
 // ==========================================================
 
 export function getClothingTip(celsiusTemp, rainSlots) {
-    // ... (기존 로직 유지)
     let coat = "";
     let inner = "";
 
@@ -50,22 +50,26 @@ export function getClothingTip(celsiusTemp, rainSlots) {
     if (coat) html += `아우터: ${coat}<br>`;
     if (inner) html += `상의: ${inner}<br>`;
 
-    if (rainSlots.length > 0) {
+    // ⭐⭐ 수정: 배열 유효성 검사 추가 ⭐⭐
+    if (Array.isArray(rainSlots) && rainSlots.length > 0) {
         html += "<br>☔ <b>오늘 비가 오는 시간</b><br>";
+
         rainSlots.forEach((slot) => {
             const t = new Date(slot.dt * 1000);
             const h = t.getHours();
             html += `• ${h}시 비 예보<br>`;
         });
+
         html += "우산을 챙기세요!";
     }
+
     return html;
 }
 
 // ==========================================================
-// 3. 현재 날씨 UI 업데이트 함수 (export)
+// 3. 현재 날씨 UI 업데이트 함수
 // ==========================================================
-// NOTE: main.js에서 DOM_ELEMENTS 객체를 받도록 수정
+
 export function displayWeather(data, isCelsius, rainSlots, elements) {
     const { cityName, temperature, description, humidity, windSpeed, weatherIcon, weatherDetails, clothingTipParagraph } = elements;
     
@@ -74,26 +78,32 @@ export function displayWeather(data, isCelsius, rainSlots, elements) {
 
     cityName.textContent = data.name;
     temperature.textContent = `${temp}°${isCelsius ? "C" : "F"}`;
-    // ... (나머지 로직 유지)
+
     let desc = data.weather[0].description;
     if (desc === "연무") desc = "뿌연 공기";
     if (desc === "박무") desc = "옅은 안개";
     description.textContent = desc;
+
     humidity.textContent = `${data.main.humidity}%`;
     windSpeed.textContent = `${data.wind.speed}m/s`;
+
     weatherIcon.src = `https://openweathermap.org/img/wn/${data.weather[0].icon}@2x.png`;
     updateBackground(data.weather[0].id);
+
     clothingTipParagraph.innerHTML = getClothingTip(celsiusTemp, rainSlots);
     weatherDetails.classList.remove("hidden");
 }
 
 // ==========================================================
-// 4. 시간별 예보 UI (export)
+// 4. 시간별 예보 UI
 // ==========================================================
 
 export function displayHourlyForecast(data, isCelsius, hourlyCardsDiv) {
-    // ... (기존 로직 유지)
     hourlyCardsDiv.innerHTML = "";
+    
+    // ⭐ 데이터 유효성 검사 ⭐
+    if (!data.list) return;
+
     const list = data.list.slice(0, 8);
 
     list.forEach((f) => {
@@ -113,12 +123,15 @@ export function displayHourlyForecast(data, isCelsius, hourlyCardsDiv) {
 }
 
 // ==========================================================
-// 5. 단기 예보 UI (export)
+// 5. 단기 예보 UI
 // ==========================================================
 
 export function displayForecast(data, isCelsius, forecastCardsDiv) {
-    // ... (기존 로직 유지)
     forecastCardsDiv.innerHTML = "";
+    
+    // ⭐ 데이터 유효성 검사 ⭐
+    if (!data.list) return;
+
     const daily = data.list.filter((x) => x.dt_txt.includes("12:00:00")).slice(0, 5);
 
     daily.forEach((f) => {
@@ -138,12 +151,10 @@ export function displayForecast(data, isCelsius, forecastCardsDiv) {
 }
 
 // ==========================================================
-// 6. 최근 도시 UI (export)
+// 6. 최근 도시 UI
 // ==========================================================
 
-// NOTE: getWeatherCallback을 fetchWeatherAndDisplay로 사용
 export function loadRecentCities(cityInput, recentCitiesSection, recentListDiv, getWeatherCallback) {
-    // ... (기존 로직 유지)
     recentListDiv.innerHTML = "";
     const list = JSON.parse(localStorage.getItem(RECENT_CITIES_KEY)) || [];
 
@@ -167,11 +178,10 @@ export function loadRecentCities(cityInput, recentCitiesSection, recentListDiv, 
 }
 
 // ==========================================================
-// 7. 포켓몬고 부스트 UI (export)
+// 7. 포켓몬고 부스트 UI
 // ==========================================================
 
 function getPokeBoost(weatherId, windSpeed = 0) {
-    // ... (기존 로직 유지)
     if (windSpeed >= 10) {
         return "🌬 강풍 — 비행 / 드래곤 / 에스퍼 타입 부스트";
     }
@@ -198,6 +208,6 @@ function getPokeBoost(weatherId, windSpeed = 0) {
 
 export function displayPokeBoost(data, pogoboostContent) {
     const weatherId = data.weather[0].id;
-    const windSpeed = data.wind.speed; // 풍속 데이터를 사용하도록 수정
+    const windSpeed = data.wind.speed;
     pogoboostContent.textContent = getPokeBoost(weatherId, windSpeed);
 }

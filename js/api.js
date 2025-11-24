@@ -3,18 +3,17 @@
 // ==========================================================
 // 1. 기본 설정 (Netlify 환경 변수 주입 대상)
 // ==========================================================
-// NOTE: Netlify 빌드 시 이 더미 문자열이 실제 API 키로 대체됩니다.
 const API_KEY = "YOUR_OPENWEATHERMAP_API_KEY_PLACEHOLDER"; 
 const BASE_URL = "https://api.openweathermap.org/data/2.5";
 
 
 /**
- * 현재 날씨 정보를 가져옵니다.
+ * 현재 날씨 정보를 가져옵니다. (도시 이름 또는 좌표 쿼리)
  */
-export async function getWeather(city, isCelsius) {
+export async function getWeather(query, isCelsius) {
     const unit = isCelsius ? "metric" : "imperial";
-    // NOTE: city 쿼리에는 lat={lat}&lon={lon} 형태도 들어올 수 있도록 처리합니다.
-    const cityQuery = city.startsWith('lat=') ? city : `q=${encodeURIComponent(city)}`;
+    // 쿼리가 'lat=...&lon=...' 형태면 그대로 사용하고, 아니면 'q=도시이름' 형태로 인코딩합니다.
+    const cityQuery = query.startsWith('lat=') ? query : `q=${encodeURIComponent(query)}`;
     
     const url = `${BASE_URL}/weather?${cityQuery}&appid=${API_KEY}&units=${unit}&lang=kr`;
 
@@ -32,11 +31,11 @@ export async function getForecast(lat, lon, isCelsius) {
     const url = `${BASE_URL}/forecast?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=${unit}&lang=kr`;
 
     const res = await fetch(url);
-    if (!res.ok) return { list: [] }; // 에러 시 빈 리스트 반환
+    if (!res.ok) return { list: [] };
 
     const data = await res.json();
     
-    // ⭐⭐ 수정: data.list가 없으면 빈 리스트 반환하여 오류 방지 ⭐⭐
+    // ⭐ 데이터 유효성 검사: list가 없으면 빈 리스트 반환 ⭐
     if (!data || !data.list) return { list: [] }; 
 
     return data;
@@ -53,7 +52,7 @@ export async function getTodayRainInfo(lat, lon) {
 
     const data = await res.json();
 
-    // ⭐⭐ 수정: data.list가 없으면 빈 배열 반환하여 오류 방지 ⭐⭐
+    // ⭐ 데이터 유효성 검사: list가 없으면 빈 배열 반환 ⭐
     if (!data || !data.list) return []; 
 
     const today = new Date().getDate();
