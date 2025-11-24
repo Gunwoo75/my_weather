@@ -1,9 +1,12 @@
+// js/main.js 파일 내용
+
 // ==========================================================
-// 1. 기본 설정 및 DOM 요소 캐싱
+// 1. 모듈 Import 및 DOM 요소 캐싱
 // ==========================================================
 
 import { getWeather, getForecast, getTodayRainInfo } from './api.js';
 import { displayWeather, displayHourlyForecast, displayForecast, loadRecentCities, displayPokeBoost } from './ui.js';
+
 const MAX_RECENT_CITIES = 5;
 const RECENT_CITIES_KEY = "recentCities";
 
@@ -17,206 +20,72 @@ const weatherDetails = document.querySelector("#weather-details");
 const forecastCardsDiv = document.querySelector("#forecast-cards");
 const hourlyCardsDiv = document.querySelector("#hourly-cards");
 const clothingTipParagraph = document.querySelector("#clothing-tip");
-const pogoboostContent = document.querySelector("#pogoboost-content"); // 포켓몬고 섹션 캐싱
+const pogoboostContent = document.querySelector("#pogoboost-content"); 
 
 let isCelsius = true;
 let currentWeatherCache = null;
 
+// UI 모듈에서 필요한 DOM 요소들을 한 번에 묶어 전달하기 위한 객체
+const DOM_ELEMENTS = {
+    cityName: document.querySelector("#city-name"),
+    temperature: document.querySelector("#temperature"),
+    description: document.querySelector("#description"),
+    humidity: document.querySelector("#humidity"),
+    windSpeed: document.querySelector("#wind-speed"),
+    weatherIcon: document.querySelector("#weather-icon"),
+    weatherDetails: weatherDetails,
+    clothingTipParagraph: clothingTipParagraph,
+    pogoboostContent: pogoboostContent
+};
+
 
 // ==========================================================
-// 2. API 호출
+// 2. 메인 로직 (API 호출 및 UI 업데이트 흐름 제어)
 // ==========================================================
 
-async function getWeather(city) {
-    const unit = isCelsius ? "metric" : "imperial";
-    const url = `${BASE_URL}/weather?q=${encodeURIComponent(
-        city
-    )}&appid=${API_KEY}&units=${unit}&lang=kr`;
+async function fetchWeatherAndDisplay(query) {
+    // 쿼리가 좌표 형식인지 (lat=...&lon=...) 확인합니다.
+    const isCoordinate = query.startsWith('lat=') && query.includes('lon=');
+    const city = isCoordinate ? query : query.trim();
+    
+    if (!city) return;
 
     try {
         errorDisplay.classList.add("hidden");
         weatherDetails.classList.add("hidden");
 
-        const res = await fetch(url);
-        if (!res.ok) throw new Error("도시를 찾을 수 없습니다.");
-
-        const data = await res.json();
+        // API 모듈에서 데이터 가져오기 (API 키는 api.js에서 처리)
+        // 쿼리가 좌표일 경우 city 파라미터 대신 좌표 쿼리를 직접 전달
+        const data = await getWeather(city, isCelsius);
         currentWeatherCache = data;
+        
+        const { lat, lon } = data.coord;
 
-        const willRainInfo = await getTodayRainInfo(
-            data.coord.lat,
-            data.coord.lon
-        );
+        const willRainInfo = await getTodayRainInfo(lat, lon);
 
-        displayWeather(data, willRainInfo);
-        updateRecentCities(city);
-        await getForecast(data.coord.lat, data.coord.lon);
+        // UI 모듈 함수 호출
+        displayWeather(data, isCelsius, willRainInfo, DOM_ELEMENTS);
+        displayPokeBoost(data, DOM_ELEMENTS.pogoboostContent);
+        
+        await displayForecast(data, isCelsius, forecastCardsDiv);
+        await displayHourlyForecast(data, isCelsius, hourlyCardsDiv);
+
+        updateRecentCities(data.name);
+
     } catch (err) {
         handleError(err);
     }
 }
 
-async function getForecast(lat, lon) {
-    const unit = isCelsius ? "metric" : "imperial";
-    const url = `${BASE_URL}/forecast?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=${unit}&lang=kr`;
+function updateRecentCities(city) {
+    let list = JSON.parse(localStorage.getItem(RECENT_CITIES_KEY)) || [];
+    list = list.filter((c) => c.toLowerCase() !== city.toLowerCase());
+    list.unshift(city);
 
-    const res = await fetch(url);
-    if (!res.ok) return;
+    if (list.length > MAX_RECENT_CITIES) list = list.slice(0, MAX_RECENT_CITIES);
 
-    const data = await res.json();
-
-    displayHourlyForecast(data);
-    displayForecast(data);
-}
-
-async function getTodayRainInfo(lat, lon) {
-    const url = `${BASE_URL}/forecast?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=metric&lang=kr`;
-    const res = await fetch(url);
-    if (!res.ok) return [];
-
-    const data = await res.json();
-
-    const today = new Date().getDate();
-
-    const todayList = data.list.filter((item) => {
-        const d = new Date(item.dt * 1000);
-        return d.getDate() === today;
-    });
-
-    const rainSlots = todayList.filter((item) => {
-        const id = item.weather[0].id;
-        const pop = item.pop;
-        return (id >= 500 && id < 600) || pop >= 0.3;
-    });
-
-    return rainSlots;
-}
-
-
-// ==========================================================
-// 3. 배경 및 부스트 업데이트 (누락 기능 포함)
-// ==========================================================
-
-function updateBackground(weatherId) {
-    const body = document.body;
-    body.classList.remove("bg-clear", "bg-clouds", "bg-rain", "bg-snow", "bg-thunder", "bg-mist");
-
-    let className = "";
-
-    if (weatherId >= 200 && weatherId < 300) {
-        className = "bg-thunder";
-    } else if (weatherId >= 300 && weatherId < 600) { 
-        className = "bg-rain";
-    } else if (weatherId >= 600 && weatherId < 700) {
-        className = "bg-snow";
-    } else if (weatherId >= 700 && weatherId < 800) {
-        className = "bg-mist";
-    } else if (weatherId === 800) {
-        className = "bg-clear";
-    } else if (weatherId > 800) {
-        className = "bg-clouds";
-    }
-
-    if (className) {
-        body.classList.add(className);
-    }
-}
-
-function getPokeBoost(weatherId) {
-    if (weatherId >= 200 && weatherId < 300) {
-        return "⚡️ 비/바람: 전기, 물, 벌레 타입 부스트";
-    } else if (weatherId >= 300 && weatherId < 600) {
-        return "🌧 비: 물, 전기, 벌레 타입 부스트";
-    } else if (weatherId >= 600 && weatherId < 700) {
-        return "❄️ 눈: 얼음, 강철 타입 부스트";
-    } else if (weatherId >= 700 && weatherId < 800) {
-        return "🌫 안개: 악, 고스트 타입 부스트";
-    } else if (weatherId === 800) {
-        return "☀️ 맑음: 풀, 땅, 불 타입 부스트";
-    } else if (weatherId === 804) {
-        return "☁️ 구름 많음: 페어리, 격투 타입 부스트";
-    } else if (weatherId > 800) {
-        return "☁️ 흐림: 페어리, 격투 타입 부스트";
-    }
-    return "날씨 정보가 명확하지 않아 부스트를 확인할 수 없습니다.";
-}
-
-function displayPokeBoost(data) {
-    const weatherId = data.weather[0].id;
-    pogoboostContent.textContent = getPokeBoost(weatherId);
-}
-
-
-// ==========================================================
-// 4. 옷차림 추천
-// ==========================================================
-
-function getClothingTip(celsiusTemp, rainSlots) {
-    let coat = "";
-    let inner = "";
-
-    if (celsiusTemp >= 28) inner = "민소매, 반팔 티셔츠";
-    else if (celsiusTemp >= 23) inner = "반팔, 얇은 셔츠";
-    else if (celsiusTemp >= 20) { coat = "얇은 가디건"; inner = "긴팔 티셔츠"; }
-    else if (celsiusTemp >= 17) { coat = "얇은 재킷"; inner = "맨투맨"; }
-    else if (celsiusTemp >= 12) { coat = "가디건, 야상"; inner = "기모 후드티"; }
-    else if (celsiusTemp >= 9)  { coat = "트렌치 코트"; inner = "두꺼운 상의"; }
-    else if (celsiusTemp >= 5)  { coat = "울 코트"; inner = "히트텍"; }
-    else                        { coat = "패딩"; inner = "방한용품 필수"; }
-
-    let html = "";
-    if (coat) html += `아우터: ${coat}<br>`;
-    if (inner) html += `상의: ${inner}<br>`;
-
-    if (rainSlots.length > 0) {
-        html += "<br>☔ <b>오늘 비가 오는 시간</b><br>";
-
-        rainSlots.forEach((slot) => {
-            const t = new Date(slot.dt * 1000);
-            const h = t.getHours();
-            html += `• ${h}시 비 예보<br>`;
-        });
-
-        html += "우산을 챙기세요!";
-    }
-
-    return html;
-}
-
-
-// ==========================================================
-// 5. UI 업데이트
-// ==========================================================
-
-function displayWeather(data, rainSlots) {
-    const temp = Math.round(data.main.temp);
-    const celsiusTemp = isCelsius ? temp : Math.round((temp - 32) * 5 / 9);
-
-    document.querySelector("#city-name").textContent = data.name;
-    document.querySelector("#temperature").textContent =
-        `${temp}°${isCelsius ? "C" : "F"}`;
-    document.querySelector("#description").textContent =
-        data.weather[0].description;
-
-    document.querySelector("#humidity").textContent =
-        `${data.main.humidity}%`;
-    document.querySelector("#wind-speed").textContent =
-        `${data.wind.speed}m/s`;
-
-    document.querySelector("#weather-icon").src =
-        `https://openweathermap.org/img/wn/${data.weather[0].icon}@2x.png`;
-
-    // 배경 및 부스트 업데이트
-    updateBackground(data.weather[0].id);
-    displayPokeBoost(data);
-    
-    // 옷차림 추천
-    clothingTipParagraph.innerHTML = getClothingTip(
-        celsiusTemp,
-        rainSlots
-    );
-
-    weatherDetails.classList.remove("hidden");
+    localStorage.setItem(RECENT_CITIES_KEY, JSON.stringify(list));
+    loadRecentCities(cityInput, recentCitiesSection, recentListDiv, fetchWeatherAndDisplay); // 콜백 함수 사용
 }
 
 function handleError(err) {
@@ -227,125 +96,12 @@ function handleError(err) {
 
 
 // ==========================================================
-// 6. 시간별 / 단기 예보
+// 3. 이벤트 핸들러
 // ==========================================================
 
-function displayHourlyForecast(data) {
-    hourlyCardsDiv.innerHTML = "";
-
-    const list = data.list.slice(0, 8);
-
-    list.forEach((f) => {
-        const d = new Date(f.dt * 1000);
-        const hour = d.getHours();
-        const temp = Math.round(f.main.temp);
-
-        const card = document.createElement("div");
-        card.className = "hourly-card";
-        card.innerHTML = `
-            <h4>${hour}시</h4>
-            <img src="https://openweathermap.org/img/wn/${f.weather[0].icon}.png">
-            <p>${temp}°${isCelsius ? "C" : "F"}</p>
-        `;
-        hourlyCardsDiv.appendChild(card);
-    });
-}
-
-function displayForecast(data) {
-    forecastCardsDiv.innerHTML = "";
-
-    const daily = data.list.filter((x) =>
-        x.dt_txt.includes("12:00:00")
-    ).slice(0, 5);
-
-    daily.forEach((f) => {
-        const d = new Date(f.dt * 1000);
-        const day = d.toLocaleDateString("ko-KR", { weekday: "short" });
-        const temp = Math.round(f.main.temp);
-
-        const card = document.createElement("div");
-        card.className = "forecast-card";
-        card.innerHTML = `
-            <h4>${day}</h4>
-            <img src="https://openweathermap.org/img/wn/${f.weather[0].icon}.png">
-            <p>${temp}°${isCelsius ? "C" : "F"}</p>
-        `;
-        forecastCardsDiv.appendChild(card);
-    });
-}
-
-
-// ==========================================================
-// 7. 최근 검색
-// ==========================================================
-
-function updateRecentCities(city) {
-    let list = JSON.parse(localStorage.getItem(RECENT_CITIES_KEY)) || [];
-    city = city.trim();
-
-    list = list.filter((c) => c.toLowerCase() !== city.toLowerCase());
-    list.unshift(city);
-
-    if (list.length > MAX_RECENT_CITIES) list = list.slice(0, MAX_RECENT_CITIES);
-
-    localStorage.setItem(RECENT_CITIES_KEY, JSON.stringify(list));
-    loadRecentCities();
-}
-
-function loadRecentCities() {
-    recentListDiv.innerHTML = "";
-
-    const list = JSON.parse(localStorage.getItem(RECENT_CITIES_KEY)) || [];
-
-    if (list.length === 0) {
-        recentCitiesSection.classList.add("hidden");
-        return;
-    }
-
-    recentCitiesSection.classList.remove("hidden");
-
-    list.forEach((city) => {
-        const btn = document.createElement("button");
-        btn.textContent = city;
-        btn.className = "recent-city-btn";
-        btn.onclick = () => {
-            getWeather(city);
-            cityInput.value = city;
-        };
-        recentListDiv.appendChild(btn);
-    });
-}
-
-
-// ==========================================================
-// 8. 이벤트
-// ==========================================================
-
-async function fetchWeatherAndDisplay(city) {
-    const unit = isCelsius ? "metric" : "imperial";
-
-    try {
-        // 1. API 모듈에서 날씨 데이터 가져오기
-        const data = await getWeather(city, isCelsius); 
-        currentWeatherCache = data;
-
-        // 2. API 모듈에서 강수 정보 가져오기
-        const willRainInfo = await getTodayRainInfo(data.coord.lat, data.coord.lon);
-
-        // 3. UI 모듈을 사용하여 화면 업데이트
-        displayWeather(data, isCelsius, willRainInfo, /* 필요한 DOM 요소들 */); 
-        
-        // 4. 나머지 업데이트
-        updateRecentCities(city);
-        await getForecast(data.coord.lat, data.coord.lon, isCelsius);
-
-    } catch (err) {
-        handleError(err);
-    }
-}
 searchBtn.onclick = () => {
     const city = cityInput.value.trim();
-    if (city) getWeather(city);
+    if (city) fetchWeatherAndDisplay(city); // 새 함수 호출
 };
 
 cityInput.addEventListener("keypress", (e) => {
@@ -355,29 +111,26 @@ cityInput.addEventListener("keypress", (e) => {
 unitToggleBtn.onclick = () => {
     isCelsius = !isCelsius;
     if (currentWeatherCache)
-        getWeather(currentWeatherCache.name);
+        fetchWeatherAndDisplay(currentWeatherCache.name); // 새 함수 호출
 };
 
 
 // ==========================================================
-// 9. 위치 기반 자동 로딩
+// 4. 위치 기반 자동 로딩
 // ==========================================================
 
 window.onload = () => {
-    loadRecentCities();
+    // loadRecentCities에 콜백 함수 전달
+    loadRecentCities(cityInput, recentCitiesSection, recentListDiv, fetchWeatherAndDisplay); 
 
     navigator.geolocation.getCurrentPosition(
         async (pos) => {
             const { latitude, longitude } = pos.coords;
-
-            // 로컬 환경에서도 동작하도록 단일 파일에 로직 포함
-            const url = `${BASE_URL}/weather?lat=${latitude}&lon=${longitude}&appid=${API_KEY}&units=metric&lang=kr`;
-            const res = await fetch(url);
-            const data = await res.json();
-
-            cityInput.value = data.name;
-            getWeather(data.name);
+            
+            // 좌표를 쿼리 문자열로 만들어 전달
+            fetchWeatherAndDisplay(`lat=${latitude}&lon=${longitude}`);
         },
-        () => getWeather("Seoul")
+        // 실패 시
+        () => fetchWeatherAndDisplay("Seoul")
     );
 };

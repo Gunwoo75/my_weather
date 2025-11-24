@@ -1,13 +1,15 @@
-// weather_app/js/api.js
+// js/api.js 파일 내용
 
-const API_KEY = "YOUR_OPENWEATHERMAP_API_KEY_PLACEHOLDER"; 
+// ==========================================================
+// 1. 기본 설정 (Netlify 환경 변수 주입 대상)
+// ==========================================================
+// NOTE: Netlify 빌드 시 이 더미 문자열이 실제 API 키로 대체됩니다.
+const API_KEY = "YOUR_OPENWEATHERMAP_API_KEY_PLACEHOLDER";
 const BASE_URL = "https://api.openweathermap.org/data/2.5";
+
 
 /**
  * 현재 날씨 정보를 가져옵니다.
- * @param {string} city - 도시 이름
- * @param {boolean} isCelsius - 섭씨/화씨 여부
- * @returns {Promise<object>} 현재 날씨 데이터
  */
 export async function getWeather(city, isCelsius) {
     const unit = isCelsius ? "metric" : "imperial";
@@ -23,10 +25,6 @@ export async function getWeather(city, isCelsius) {
 
 /**
  * 시간별/단기 예보를 가져옵니다.
- * @param {number} lat - 위도
- * @param {number} lon - 경도
- * @param {boolean} isCelsius - 섭씨/화씨 여부
- * @returns {Promise<object>} 예보 데이터
  */
 export async function getForecast(lat, lon, isCelsius) {
     const unit = isCelsius ? "metric" : "imperial";
@@ -40,9 +38,6 @@ export async function getForecast(lat, lon, isCelsius) {
 
 /**
  * 오늘 날짜 00~23시 강수 예보만 찾습니다.
- * @param {number} lat - 위도
- * @param {number} lon - 경도
- * @returns {Promise<Array<object>>} 비 오는 시간대 배열
  */
 export async function getTodayRainInfo(lat, lon) {
     // Note: 옷차림 추천을 위해 강수 정보는 항상 metric(섭씨) 기준으로 가져옵니다.
