@@ -4,7 +4,7 @@
 // 1. 기본 설정 (Netlify 환경 변수 주입 대상)
 // ==========================================================
 // NOTE: Netlify 빌드 시 이 더미 문자열이 실제 API 키로 대체됩니다.
-const API_KEY = "YOUR_OPENWEATHERMAP_API_KEY_PLACEHOLDER";
+const API_KEY = "YOUR_OPENWEATHERMAP_API_KEY_PLACEHOLDER"; 
 const BASE_URL = "https://api.openweathermap.org/data/2.5";
 
 
@@ -13,9 +13,10 @@ const BASE_URL = "https://api.openweathermap.org/data/2.5";
  */
 export async function getWeather(city, isCelsius) {
     const unit = isCelsius ? "metric" : "imperial";
-    const url = `${BASE_URL}/weather?q=${encodeURIComponent(
-        city
-    )}&appid=${API_KEY}&units=${unit}&lang=kr`;
+    // NOTE: city 쿼리에는 lat={lat}&lon={lon} 형태도 들어올 수 있도록 처리합니다.
+    const cityQuery = city.startsWith('lat=') ? city : `q=${encodeURIComponent(city)}`;
+    
+    const url = `${BASE_URL}/weather?${cityQuery}&appid=${API_KEY}&units=${unit}&lang=kr`;
 
     const res = await fetch(url);
     if (!res.ok) throw new Error("도시를 찾을 수 없습니다.");
@@ -31,9 +32,14 @@ export async function getForecast(lat, lon, isCelsius) {
     const url = `${BASE_URL}/forecast?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=${unit}&lang=kr`;
 
     const res = await fetch(url);
-    if (!res.ok) return null;
+    if (!res.ok) return { list: [] }; // 에러 시 빈 리스트 반환
 
-    return await res.json();
+    const data = await res.json();
+    
+    // ⭐⭐ 수정: data.list가 없으면 빈 리스트 반환하여 오류 방지 ⭐⭐
+    if (!data || !data.list) return { list: [] }; 
+
+    return data;
 }
 
 /**
@@ -47,15 +53,18 @@ export async function getTodayRainInfo(lat, lon) {
 
     const data = await res.json();
 
+    // ⭐⭐ 수정: data.list가 없으면 빈 배열 반환하여 오류 방지 ⭐⭐
+    if (!data || !data.list) return []; 
+
     const today = new Date().getDate();
 
     // 오늘 날짜 예보만 필터링
     const todayList = data.list.filter((item) => {
         const d = new Date(item.dt * 1000);
-        return d.getDate() === today; // 오늘날짜만
+        return d.getDate() === today; 
     });
 
-    // 비 오는 시간대만 추출 (비 종류 ID 500대, 또는 강수 확률(pop) 30% 이상)
+    // 비 오는 시간대만 추출 
     const rainSlots = todayList.filter((item) => {
         const id = item.weather[0].id;
         const pop = item.pop;
