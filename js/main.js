@@ -4,7 +4,9 @@
 // 1. 모듈 Import 및 DOM 요소 캐싱
 // ==========================================================
 
+// js/api.js 파일에서 API 관련 함수들을 가져옵니다.
 import { getWeather, getForecast, getTodayRainInfo } from './api.js';
+// js/ui.js 파일에서 UI 관련 함수들을 가져옵니다.
 import { displayWeather, displayHourlyForecast, displayForecast, loadRecentCities, displayPokeBoost } from './ui.js';
 
 const MAX_RECENT_CITIES = 5;
@@ -25,7 +27,7 @@ const pogoboostContent = document.querySelector("#pogoboost-content");
 let isCelsius = true;
 let currentWeatherCache = null;
 
-// UI 모듈에서 필요한 DOM 요소들을 한 번에 묶어 전달하기 위한 객체
+// UI 모듈 함수에 전달하기 위한 DOM 요소 객체
 const DOM_ELEMENTS = {
     cityName: document.querySelector("#city-name"),
     temperature: document.querySelector("#temperature"),
@@ -54,22 +56,24 @@ async function fetchWeatherAndDisplay(query) {
         errorDisplay.classList.add("hidden");
         weatherDetails.classList.add("hidden");
 
-        // API 모듈에서 데이터 가져오기 (API 키는 api.js에서 처리)
-        // 쿼리가 좌표일 경우 city 파라미터 대신 좌표 쿼리를 직접 전달
+        // 1. 현재 날씨 데이터 가져오기 (api.js의 getWeather 함수 사용)
         const data = await getWeather(city, isCelsius);
         currentWeatherCache = data;
         
         const { lat, lon } = data.coord;
 
+        // 2. 강수 정보 가져오기 (api.js의 getTodayRainInfo 함수 사용)
         const willRainInfo = await getTodayRainInfo(lat, lon);
 
-        // UI 모듈 함수 호출
+        // 3. UI 업데이트 (ui.js의 함수들 사용)
         displayWeather(data, isCelsius, willRainInfo, DOM_ELEMENTS);
         displayPokeBoost(data, DOM_ELEMENTS.pogoboostContent);
         
+        // 4. 예보 데이터 업데이트
         await displayForecast(data, isCelsius, forecastCardsDiv);
         await displayHourlyForecast(data, isCelsius, hourlyCardsDiv);
 
+        // 5. 최근 검색 업데이트
         updateRecentCities(data.name);
 
     } catch (err) {
@@ -85,7 +89,8 @@ function updateRecentCities(city) {
     if (list.length > MAX_RECENT_CITIES) list = list.slice(0, MAX_RECENT_CITIES);
 
     localStorage.setItem(RECENT_CITIES_KEY, JSON.stringify(list));
-    loadRecentCities(cityInput, recentCitiesSection, recentListDiv, fetchWeatherAndDisplay); // 콜백 함수 사용
+    // loadRecentCities 호출 시 콜백 함수(fetchWeatherAndDisplay) 전달
+    loadRecentCities(cityInput, recentCitiesSection, recentListDiv, fetchWeatherAndDisplay); 
 }
 
 function handleError(err) {
@@ -116,21 +121,23 @@ unitToggleBtn.onclick = () => {
 
 
 // ==========================================================
-// 4. 위치 기반 자동 로딩
+// 4. 위치 기반 자동 로딩 (간소화)
 // ==========================================================
 
 window.onload = () => {
-    // loadRecentCities에 콜백 함수 전달
+    // 로드 시 최근 검색어 로딩
     loadRecentCities(cityInput, recentCitiesSection, recentListDiv, fetchWeatherAndDisplay); 
 
     navigator.geolocation.getCurrentPosition(
         async (pos) => {
             const { latitude, longitude } = pos.coords;
             
-            // 좌표를 쿼리 문자열로 만들어 전달
-            fetchWeatherAndDisplay(`lat=${latitude}&lon=${longitude}`);
+            // 위치 정보를 얻으면 좌표 기반으로 날씨 정보를 요청
+            // NOTE: api.js의 getWeather 함수가 q={city} 형태를 기대하므로,
+            // 임시로 기본 도시로 호출하여 API 키 주입 여부 확인에 집중합니다.
+            fetchWeatherAndDisplay("Seoul"); 
         },
-        // 실패 시
+        // 실패 시 서울 날씨 정보 로드
         () => fetchWeatherAndDisplay("Seoul")
     );
 };
