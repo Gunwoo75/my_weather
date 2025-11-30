@@ -113,15 +113,15 @@ button:hover {
 .bg-mist { background-color: #D3D3D3; }
 
 /* --------------------------
-   오른쪽 박스 기본 설정 (모바일 퍼스트)
-   - 모바일에서는 position: static으로 본문 
+   오른쪽 박스 기본 설정 (모바일 퍼스트 및 좁은 PC 화면)
+   - position: static으로 본문 흐름을 따릅니다.
 --------------------------- */
 #extension-feature, #pogoboost-box {
   position: static;
   width: 100%;
   margin: 16px auto 0;
   padding: 22px;
-  box-shadow: 0 3px 10px rgba(0,0,0,0.15); /* 모바일 그림자 */
+  box-shadow: 0 3px 10px rgba(0,0,0,0.15); 
   border-radius: 14px;
 }
 
@@ -138,19 +138,22 @@ button:hover {
 
 
 /* --------------------------
-   PC 반응형 - 768px 이상 (옆 배치)
+   PC 반응형 - 940px 이상 (옆 배치 시작)
+   - 메인 콘텐츠를 가리지 않는 충분한 너비에서만 fixed 적용
 --------------------------- */
-@media (min-width: 768px) {
-  /* body 중앙 정렬을 위해 max-width 조정 (PC에서는 800px로 넓힘) */
+@media (min-width: 940px) {
+  
+  /* 메인 앱의 최대 너비를 그대로 600px로 유지하여 오른쪽 공간을 확보 */
   #weather-app {
     max-width: 600px;
+    padding-right: 20px; 
   }
   
   /* --------------------------
-     오른쪽 박스 (PC 화면에서 FIXED 설정)
+     오른쪽 박스 (940px 이상에서 FIXED 설정)
   --------------------------- */
   #extension-feature {
-    position: fixed; /* PC에서만 고정 위치 사용 */
+    position: fixed; 
     right: auto;
     /* (화면 중앙(50%) + 메인 앱 절반 너비(300px) + 간격(10px)) 계산 */
     left: calc(50% + 310px); 
@@ -163,9 +166,9 @@ button:hover {
   }
 
   #pogoboost-box {
-    position: fixed; /* PC에서만 고정 위치 사용 */
+    position: fixed; 
     right: auto;
-    left: calc(50% + 310px); /* #extension-feature와 동일한 왼쪽 위치 */
+    left: calc(50% + 310px); 
     top: calc(160px + 280px + 40px); /* 옷차림 박스 아래 자동 배치 */
     width: 280px;
     margin: 0;
